@@ -1,0 +1,917 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#1D4E5F">
+<title>binefes hikaye</title>
+<style>
+  :root { color-scheme: light; --korfez: #1D4E5F; --kum: #F5EFE3; --ink: #1B2629; --sun: #EE7B4F; --line: #DDD3C0; }
+  html, body { margin: 0; background: var(--kum); color: var(--ink); }
+  html { scroll-padding-bottom: 100px; }   /* focused fields scroll clear of the fixed button bar */
+  body { font: 700 16px/1.4 Nunito, system-ui, sans-serif; }
+  .wrap { max-width: 980px; margin: 0 auto; padding: 16px 16px 140px; box-sizing: border-box; }
+  header { margin: 4px 0 16px; }
+  header h1 { margin: 0; font-weight: 900; font-size: 26px; color: var(--korfez); }
+  header p { margin: 2px 0 0; font-size: 14px; color: rgba(27, 38, 41, .7); }
+  .preview { display: flex; flex-direction: column; align-items: center; gap: 10px; margin-bottom: 20px; }
+  .preview .opts { display: grid; justify-items: start; gap: 6px; }   /* one centred column, boxes aligned */
+  .preview .check { font-size: 14px; }
+  #out { display: block; width: min(100%, 250px); height: auto; border-radius: 14px; box-shadow: 0 6px 24px rgba(27, 38, 41, .18); }
+  form { display: grid; gap: 14px; }
+  label { display: grid; gap: 4px; font-weight: 800; font-size: 14px; color: var(--korfez); }
+  label small { font-weight: 700; color: rgba(27, 38, 41, .6); }
+  label small.warn { color: #A8431C; }
+  label small.warn:empty { display: none; }
+  input, select { font: inherit; font-weight: 700; color: var(--ink); background: #fff; border: 1.5px solid var(--line); border-radius: 10px;
+                  padding: 10px 12px; min-height: 46px; width: 100%; box-sizing: border-box; }
+  input:focus, select:focus { outline: none; border-color: var(--korfez); }
+  fieldset.gap { border: 0; margin: 0; padding: 0; min-width: 0; }
+  fieldset.gap legend { padding: 0; margin-bottom: 4px; font-weight: 800; font-size: 14px; color: var(--korfez); }
+  fieldset.gap output { margin-left: 6px; font-weight: 900; color: var(--ink); }
+  .chips { display: grid; grid-template-columns: repeat(var(--cols, 5), 1fr); gap: 6px; }
+  .chips label { display: block; position: relative; }
+  .chips input { position: absolute; inset: 0; opacity: 0; margin: 0; min-height: 0; }
+  .chips span { display: flex; align-items: center; justify-content: center; text-align: center; min-height: 46px; padding: 2px 4px;
+                box-sizing: border-box; background: #fff; border: 1.5px solid var(--line); border-radius: 10px;
+                font-size: 14px; line-height: 1.1; font-weight: 800; color: var(--ink); cursor: pointer; }
+  .chips input:checked + span { background: var(--korfez); border-color: var(--korfez); color: var(--kum); }
+  .chips input:focus-visible + span { outline: 2px solid var(--sun); outline-offset: 2px; }
+  .chips.dates span { flex-direction: column; }
+  .chips.dates small { margin-top: 2px; font-size: 12px; color: inherit; opacity: .7; }
+  /* Route stops: one field per stop, × removes, + adds */
+  #stops { display: grid; gap: 6px; }
+  .stop { display: grid; grid-template-columns: 1fr 46px; gap: 6px; }
+  .stop .del, .add-stop { min-height: 46px; padding: 0; border-radius: 10px; border: 1.5px solid var(--line); background: #fff;
+                          color: var(--korfez); font-weight: 900; }
+  .stop .del { font-size: 22px; line-height: 1; }
+  .add-stop { width: 100%; margin-top: 6px; border-style: dashed; font-size: 14px; }
+  .route-warn { display: block; margin-top: 6px; font-size: 13px; color: #A8431C; }
+  .route-warn:empty { display: none; }
+  .check { display: flex; align-items: center; gap: 10px; font-weight: 700; color: var(--ink); }
+  .check input { width: 22px; height: 22px; min-height: 0; accent-color: var(--korfez); }
+  .steps { margin: 18px 0 0; padding: 14px 16px; background: #fff; border-radius: 12px; font-size: 14px; color: rgba(27, 38, 41, .85); }
+  .steps ol { margin: 6px 0 0; padding-left: 20px; }
+  .steps b { color: var(--korfez); }
+  .actions { position: fixed; left: 0; right: 0; bottom: 0; display: flex; gap: 10px; justify-content: center;
+             padding: 12px 16px calc(12px + env(safe-area-inset-bottom)); background: rgba(245, 239, 227, .96); border-top: 1px solid var(--line); }
+  button { font: inherit; font-weight: 900; border-radius: 12px; min-height: 50px; padding: 0 18px; cursor: pointer; border: 2px solid var(--korfez); }
+  button.primary { background: var(--korfez); color: var(--kum); flex: 1; max-width: 320px; }
+  button.secondary { background: transparent; color: var(--korfez); }
+  button:disabled { opacity: .5; cursor: default; }
+  /* Announcement / cancellation: each mode shows only its own fields and steps */
+  body.cancel .ride-only, body:not(.cancel) .cancel-only { display: none !important; }
+  body:not(.other) .other-only { display: none !important; }
+  body:not(.long) .long-only { display: none !important; }
+  /* Optional tools that never reach the story: closed by default, the summary carries what matters */
+  details.more { background: #fff; border-radius: 12px; }
+  details.more > summary { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 8px; min-height: 46px; padding: 12px 14px;
+                           box-sizing: border-box; list-style: none; cursor: pointer; font-weight: 900; font-size: 15px; color: var(--korfez); }
+  details.more > summary::-webkit-details-marker { display: none; }
+  details.more > summary::before { content: '▸'; display: inline-block; width: 12px; transition: transform .15s; }
+  details.more[open] > summary::before { transform: rotate(90deg); }
+  details.more > summary small { font-size: 13px; font-weight: 700; color: rgba(27, 38, 41, .6); }
+  details.more > summary small.bad { color: #A8431C; font-weight: 800; }
+  details.more[open] > summary small { display: none; }   /* open, the panel says it in full */  details.more > .body { display: grid; gap: 14px; padding: 0 14px 14px; }
+  .pair { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  /* Weather: operator only, never on the story */
+  .weather { font-size: 13px; color: rgba(27, 38, 41, .85); }
+  .weather:empty { display: none; }
+  .weather h2 { margin: 0; font-size: 15px; font-weight: 900; color: var(--korfez); }
+  .weather p { margin: 2px 0 0; }
+  .weather table { width: 100%; border-collapse: collapse; margin-top: 8px; font-variant-numeric: tabular-nums; }
+  .weather th { text-align: left; font-size: 12px; font-weight: 800; color: rgba(27, 38, 41, .6); padding: 0 6px 4px 0; }
+  .weather td { padding: 4px 6px 4px 0; border-top: 1px solid var(--line); white-space: nowrap; }
+  .weather td.desc { white-space: normal; }
+  .weather .bad { color: #A8431C; font-weight: 900; }
+  .weather .alert { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 10px;
+                    padding: 8px 10px; background: #FBE6DC; border-radius: 8px; color: #7A2F12; font-weight: 800; }
+  .weather .alert button { min-height: 38px; padding: 0 12px; font-size: 13px; background: var(--korfez); color: var(--kum); border: 0; flex: none; }
+  body.cancel .weather .alert button { display: none; }
+  .weather ol { margin: 10px 0 0; padding: 0; list-style: none; display: grid; gap: 8px; }
+  .weather li { padding-top: 8px; border-top: 1px solid var(--line); }
+  .weather li b { color: var(--korfez); }
+  .weather .note { color: #A8431C; font-weight: 800; }
+  .weather .fill { min-height: 32px; margin-top: 6px; padding: 0 10px; font-size: 12px; background: transparent; color: var(--korfez); border-width: 1.5px; }
+  .weather .src { margin-top: 8px; font-size: 11px; color: rgba(27, 38, 41, .55); }
+  .weather a { color: inherit; }
+  @media (min-width: 800px) {
+    .wrap { display: grid; grid-template-columns: 340px 1fr; gap: 0 36px; align-items: start; }
+    header { grid-column: 1 / -1; }
+    .preview { position: sticky; top: 16px; }
+    #out { width: 340px; }
+  }
+  /* ?raw=1: only the story at its real size, for scripted renders */
+  body.raw .wrap > :not(.preview), body.raw .actions, body.raw .preview .opts { display: none; }
+  body.raw .wrap { padding: 0; display: block; max-width: none; }
+  body.raw .preview { margin: 0; display: block; }
+  body.raw #out { width: 1080px; border-radius: 0; box-shadow: none; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>binefes · sürüş hikayesi</h1>
+    <p>Alanları doldur, kaydet, Instagram'da hikayeye yükle.</p>
+  </header>
+
+  <!-- Ride story: 1080×1920 (9:16). Instagram covers the top ~250 px (progress bar, avatar) and the bottom ~270 px
+       (reply bar): all content sits between y=250 and y=1650. Layout rationale: ../README.md -->
+  <div class="preview">
+  <svg id="out" width="1080" height="1920" viewBox="0 0 1080 1920" font-family="Nunito" xmlns="http://www.w3.org/2000/svg">
+    <rect width="1080" height="1920" fill="#1D4E5F"/>
+
+    <!-- Kicker: the date. Kum, not orange: it carries information, and orange on Körfez is only 3.3:1 -->
+    <text x="92" y="330" font-weight="800" font-size="34" fill="#F5EFE3" letter-spacing="6" id="date"></text>
+
+    <!-- Group 1, when and where: the day, then the one line people act on -->
+    <text id="day" x="86" y="480" font-weight="900" font-size="150" fill="#F5EFE3" letter-spacing="-3"></text>
+    <g id="ride">
+    <text class="fit" x="90" y="600" font-weight="900" font-size="60" fill="#F5EFE3"><tspan id="meet"></tspan><tspan fill-opacity="0.5"> · </tspan><tspan id="from"></tspan></text>
+    <text id="depart" x="90" y="655" font-weight="700" font-size="40" fill="#F5EFE3" fill-opacity="0.75"></text>
+
+    <!-- Group 2, the ride: the elevation line from post 02 leads into the route (flat = city, climbing = Sunday) -->
+    <path id="line-flat" d="M90 790 H560" fill="none" stroke="#EE7B4F" stroke-width="12" stroke-linecap="round"/>
+    <path id="line-climb" d="M90 790 H200 L236 780 L268 758 L292 770 L336 736 L366 754 L394 744 L440 780 L470 790 H560"
+          fill="none" stroke="#EE7B4F" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/>
+    <!-- "Rota:" names the line: without it the stops read as a list of places -->
+    <!-- The stops in a light tint of the line's orange (Brand/README.md: route tone), so the line reads as leading into them;
+         the label stays kum -->
+    <text id="route-text" x="90" y="865" font-weight="800" font-size="46" fill="#F4A98C"><tspan font-weight="700" fill="#F5EFE3" fill-opacity="0.65">Rota: </tspan><tspan id="route"></tspan></text>
+    <text id="detail" class="fit" x="90" y="920" font-weight="700" font-size="40" fill="#F5EFE3" fill-opacity="0.75"></text>
+    <text id="note" class="fit" x="90" y="975" font-weight="800" font-size="40" fill="#F5EFE3"></text>
+    </g>
+
+    <!-- Cancellation, three groups spread over the safe zone: the struck-through day (what), the message (why),
+         the elevation line into the sign-off (what next). The message wraps; render() places it. -->
+    <g id="cancel">
+    <path id="strike" fill="none" stroke="#EE7B4F" stroke-width="12" stroke-linecap="round"/>
+    <text id="message" x="90" font-weight="800" font-size="76" fill="#F5EFE3"></text>
+    <text id="explain" class="fit" x="90" font-weight="700" font-size="46" fill="#F5EFE3" fill-opacity="0.75"></text>
+    <path id="cancel-line" fill="none" stroke="#EE7B4F" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/>
+    <text id="next" class="fit" x="90" y="1545" font-weight="800" font-size="46" fill="#F5EFE3"></text>
+    </g>
+
+    <!-- Preview only (removed from the PNG): Instagram UI zones and where the stickers go -->
+    <g id="guide" font-weight="800" font-size="28" letter-spacing="4" fill="#F5EFE3" text-anchor="middle">
+      <rect width="1080" height="250" fill="#EE7B4F" fill-opacity="0.35"/>
+      <rect y="1650" width="1080" height="270" fill="#EE7B4F" fill-opacity="0.35"/>
+      <text x="540" y="140">INSTAGRAM ÜST BAR</text>
+      <text x="540" y="1800">YANIT ÇUBUĞU</text>
+      <g id="zones-poll">
+        <rect x="90" y="1100" width="900" height="450" rx="40" fill="none" stroke="#F5EFE3" stroke-width="4" stroke-dasharray="16 12"/>
+        <text x="540" y="1335">ANKET ÇIKARTMASI</text>
+      </g>
+      <g id="zones-link">
+        <rect x="90" y="1040" width="900" height="110" rx="55" fill="none" stroke="#F5EFE3" stroke-width="4" stroke-dasharray="16 12"/>
+        <text x="540" y="1105">BAĞLANTI ÇIKARTMASI · STRAVA</text>
+        <rect x="90" y="1190" width="900" height="450" rx="40" fill="none" stroke="#F5EFE3" stroke-width="4" stroke-dasharray="16 12"/>
+        <text x="540" y="1425">ANKET ÇIKARTMASI</text>
+      </g>
+    </g>
+  </svg>
+  <!-- Preview only, never in the PNG: the sticker guides, and whether the link sticker gets its area (form fields via form="form") -->
+  <div class="opts">
+    <label class="check"><input type="checkbox" name="guide" form="form" checked> Çıkartma yerlerini göster</label>
+    <label class="check ride-only"><input type="checkbox" name="link" form="form"> Link çıkartması da eklenecek</label>
+  </div>
+  </div>
+
+  <div>
+    <form id="form" autocomplete="off">
+      <fieldset class="gap">
+        <legend>Hikaye</legend>
+        <div class="chips" style="--cols: 2">
+          <label><input type="radio" name="mode" value="ride" checked><span>Sürüş duyurusu</span></label>
+          <label><input type="radio" name="mode" value="cancel"><span>İptal</span></label>
+        </div>
+      </fieldset>
+      <!-- The date is the source of truth for the day on the story; the chips are shortcuts to the next regular rides -->
+      <fieldset class="gap">
+        <legend>Tarih</legend>
+        <div class="chips dates" style="--cols: 3">
+          <label><input type="radio" name="quick" value="3"><span>Çarşamba<small></small></span></label>
+          <label><input type="radio" name="quick" value="5"><span>Cuma<small></small></span></label>
+          <label><input type="radio" name="quick" value="0"><span>Pazar<small></small></span></label>
+        </div>
+      </fieldset>
+      <label><input name="date" type="date" aria-label="Tarih"> <small class="warn" id="date-warn"></small></label>
+      <!-- Ride type, independent of the day: changing it fills that type's defaults -->
+      <fieldset class="gap">
+        <legend>Sürüş</legend>
+        <div class="chips" style="--cols: 2">
+          <label><input type="radio" name="type" value="city"><span>Akşam · şehir</span></label>
+          <label><input type="radio" name="type" value="long"><span>Uzun · antrenmanlı</span></label>
+        </div>
+      </fieldset>
+      <!-- Cancellation: a reason preset fills the message and its explanation, which stay editable -->
+      <fieldset class="gap cancel-only">
+        <legend>Sebep</legend>
+        <div class="chips" style="--cols: 4">
+          <label><input type="radio" name="reason" value="rain"><span>Yağmur</span></label>
+          <label><input type="radio" name="reason" value="storm"><span>Fırtına</span></label>
+          <label><input type="radio" name="reason" value="few"><span>Az katılım</span></label>
+          <label><input type="radio" name="reason" value="other"><span>Diğer</span></label>
+        </div>
+      </fieldset>
+      <label class="cancel-only">Mesaj <input name="message" placeholder="örn. Yağmur nedeniyle sürüşümüzü iptal ediyoruz."></label>
+      <label class="cancel-only">Açıklama <small>boş bırakılabilir</small> <input name="explain"></label>
+      <label class="cancel-only">Son satır <small>boş bırakılabilir</small> <input name="next"></label>
+      <label class="ride-only">Buluşma <input name="meet" type="time"></label>
+      <!-- The departure is a gap after the meeting, not a second time to dial in -->
+      <fieldset class="gap ride-only">
+        <legend>Yola çıkış <output id="depart-at"></output></legend>
+        <div class="chips">
+          <label><input type="radio" name="gap" value="0"><span>Aynı anda</span></label>
+          <label><input type="radio" name="gap" value="10"><span>10 dk</span></label>
+          <label><input type="radio" name="gap" value="15"><span>15 dk</span></label>
+          <label><input type="radio" name="gap" value="20"><span>20 dk</span></label>
+          <label><input type="radio" name="gap" value="30"><span>30 dk</span></label>
+        </div>
+      </fieldset>
+      <!-- The start: a preset (chips built from PLACES) or "Diğer" with a name and an optional location -->
+      <fieldset class="gap ride-only">
+        <legend>Buluşma yeri</legend>
+        <div class="chips" id="places">
+          <label><input type="radio" name="place" value="other"><span>Diğer</span></label>
+        </div>
+      </fieldset>
+      <label class="ride-only other-only">Yer adı <small>hikayede bu yazar</small> <input name="from" placeholder="örn. Bornova Metro"></label>
+      <!-- The route as stops, one field each; the story joins them with – and wraps between them -->
+      <fieldset class="gap ride-only">
+        <legend>Rota</legend>
+        <div id="stops"></div>
+        <button type="button" class="add-stop" id="add-stop">+ Durak ekle</button>
+        <small class="route-warn" id="route-warn"></small>
+        <input type="hidden" name="route">
+      </fieldset>
+      <label class="ride-only">Mesafe / tırmanış <input name="detail" placeholder="örn. 110 km · 900 m tırmanış"></label>
+      <label class="ride-only">Son satır <small>boş bırakılabilir</small> <input name="note"></label>
+      <!-- Weather: for the operator only, never on the story. Closed by default; the summary shows a warning, if any. -->
+      <details class="more" id="wx-more">
+        <summary>Hava durumu <small id="wx-sum"></small></summary>
+        <div class="body">
+        <!-- "Diğer" start: its location is only for the forecast, so it lives here, not with the name -->
+        <label class="ride-only other-only">Başlangıç konumu <small>boş bırakılabilir. Google Maps'te noktaya uzun bas, koordinatı kopyala.</small>
+          <input name="loc" inputmode="decimal" placeholder="örn. 38.4188, 27.1255"> <small class="warn" id="loc-warn"></small></label>
+        <!-- Long rides: the route, split into segments for the forecast. The file is read on the phone, never uploaded. -->
+        <label class="ride-only long-only">Rota dosyası (GPX) <small>hava durumu rotanın 4 parçası için ayrı bakılır</small>
+          <input name="gpx" type="file"> <small class="warn" id="gpx-warn"></small></label>
+        <div class="pair ride-only long-only">
+          <label>Ortalama hız <small>km/sa, molasız, tırmanış dahil (Strava'daki gibi)</small> <input name="speed" type="number" inputmode="decimal" min="10" max="40" value="20"></label>
+          <label>Molalar <small>dk, toplam</small> <input name="stops" type="number" inputmode="numeric" min="0" step="5" value="45"></label>
+        </div>
+        <!-- Forecast for the ride window at the start (the start fields); filled by updateWeather() -->
+        <section class="weather" id="weather" aria-live="polite"></section>
+        </div>
+      </details>
+    </form>
+
+    <div class="steps ride-only">
+      <b>Instagram'da</b>
+      <ol>
+        <li>Kaydettiğin görseli hikayeye yükle.</li>
+        <li>Link çıkartması varsa: Strava uygulamasında rotayı paylaş, linki kopyala; bağlantı çıkartmasına yapıştır, metin <b>Rota Strava'da</b>; rotanın altına, sola hizalı.</li>
+        <li>Anket çıkartması: <b>Geliyor musun?</b> · <b>Geliyorum 🚲</b> / <b>Bu sefer yok</b>; alttaki boş alana.</li>
+        <li>Hikaye linkini WhatsApp grubuna at.</li>
+      </ol>
+    </div>
+    <div class="steps cancel-only">
+      <b>Instagram'da</b>
+      <ol>
+        <li>Kaydettiğin görseli hikayeye yükle; çıkartma yok.</li>
+        <li>Duyuru hikayesi yayındaysa: anketinde <b>Geliyorum</b> diyenlere iptal hikayesini DM'den gönder, sonra duyuruyu sil. Sonradan bakan yalnızca iptali görsün.</li>
+        <li>Hikaye linkini WhatsApp grubuna at.</li>
+      </ol>
+    </div>
+  </div>
+</div>
+
+<div class="actions">
+  <button type="button" class="primary" id="share" disabled>Kaydet / Paylaş</button>
+  <button type="button" class="secondary" id="download" disabled>PNG indir</button>
+</div>
+
+<datalist id="stop-names">
+  <option value="İnciraltı"></option>
+  <option value="Sahilevleri"></option>
+  <option value="Balçova"></option>
+  <option value="Karşıyaka"></option>
+  <option value="Bostanlı"></option>
+  <option value="Bornova"></option>
+  <option value="Buca"></option>
+  <option value="Güzelbahçe"></option>
+</datalist>
+
+<script>
+  // Fonts are bundled (fonts/, SIL OFL): the same bytes are used by the page and embedded into the PNG,
+  // because an SVG drawn into a canvas cannot see the page's fonts.
+  const FONTS = [
+    ['fonts/nunito-latin.woff2', 'U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD'],
+    ['fonts/nunito-latin-ext.woff2', 'U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C4, U+2113, U+2C60-2C7F, U+A720-A7FF'],
+  ];
+
+  // Defaults per ride type. Only what changes per ride is on the story; the standing rules live in posts 02–03.
+  // The departure is the meeting time plus a gap (minutes); 0 drops the departure line from the story.
+  const TYPES = {
+    city: { meet: '20:00', gap: '15', from: 'Konak İskele', route: 'İnciraltı – Sahilevleri – Balçova',
+            detail: '20–30 km', note: '', link: false },
+    // Long-ride time, place and route change every week: no defaults, the placeholders show what is missing.
+    long: { meet: '', gap: '15', from: '', route: '', detail: '100+ km', note: 'Antrenmanlı sürücüler için.',
+            link: true, climb: true },
+  };
+  // Start places, one line each: name on the story, short on the chip, location for the weather
+  // (OpenStreetMap, 2026-10-28). The first one is also the weather fallback for a start without a location.
+  const PLACES = [
+    { name: 'Konak İskele', short: 'Konak', lat: 38.4188, lon: 27.1255 },
+    { name: 'Alsancak Vapur İskelesi', short: 'Alsancak', lat: 38.4390, lon: 27.1408 },
+    { name: 'Gaziemir İZBAN Durağı', short: 'Gaziemir İZBAN', lat: 38.3263, lon: 27.1400 },
+  ];
+  // The regular rides: the date shortcuts, and the ?day= parameter
+  const REGULAR = { wed: { weekday: 3, type: 'city' }, fri: { weekday: 5, type: 'city' }, sun: { weekday: 0, type: 'long' } };
+  const regularOn = weekday => Object.values(REGULAR).find(r => r.weekday === weekday);
+  // Cancellation presets: one sentence that carries the reason (a bare "iptal" reads harsh), then why that
+  // is a reason for us (empty = no second line). "Diğer" leaves the reason to the explanation.
+  const REASONS = {
+    rain: { message: 'Yağmur nedeniyle sürüşümüzü iptal ediyoruz.', explain: 'Islak yolda risk almak istemedik.' },
+    storm: { message: 'Fırtına uyarısı nedeniyle sürüşümüzü iptal ediyoruz.', explain: 'Bu havada yola çıkmak güvenli değil.' },
+    few: { message: 'Yeterli katılım olmadığı için sürüşümüzü iptal ediyoruz.', explain: '' },
+    other: { message: 'Sürüşümüzü iptal ediyoruz.', explain: '' },
+  };
+  const SIGN_OFF = 'Bir sonraki sürüşte görüşmek üzere.';
+  const MONTHS = ['Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran', 'Temmuz', 'Ağustos', 'Eylül', 'Ekim', 'Kasım', 'Aralık'];
+  const WEEKDAYS = ['Pazar', 'Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma', 'Cumartesi'];
+  const FIELDS = ['date', 'meet', 'gap', 'from', 'loc', 'route', 'detail', 'note', 'message', 'explain', 'next'];
+
+  const $ = id => document.getElementById(id);
+  const form = $('form');
+  const q = new URLSearchParams(location.search);
+  if (q.get('raw') === '1') document.body.classList.add('raw');
+
+  // Dates are the date input's local YYYY-MM-DD (not toISOString, which is UTC and can be a day off in İzmir)
+  const isoDate = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  const parseDate = s => { const [y, m, d] = s.split('-').map(Number); return y && m && d ? new Date(y, m - 1, d) : null; };
+  // Next date for a weekday, today included
+  const nextDate = weekday => {
+    const d = new Date();
+    d.setDate(d.getDate() + (weekday - d.getDay() + 7) % 7);
+    return isoDate(d);
+  };
+  const shortDate = s => { const d = parseDate(s); return `${d.getDate()} ${MONTHS[d.getMonth()]}`; };
+  // Locative suffix by the last spoken word of the time: 20:15 → ’te ("on beşte"), 07:30 → ’da ("otuzda"), 20:00 → ’de ("yirmide").
+  const UNITS = { 1: '’de', 2: '’de', 3: '’te', 4: '’te', 5: '’te', 6: '’da', 7: '’de', 8: '’de', 9: '’da' };
+  const TENS = { 0: '’da', 1: '’da', 2: '’de', 3: '’da', 4: '’ta', 5: '’de' };
+  const locative = time => {
+    const [h, m] = time.split(':').map(Number);
+    const n = m || h;
+    return n % 10 ? UNITS[n % 10] : TENS[Math.floor(n / 10)];
+  };
+
+  const toMinutes = t => { const [h, m] = t.split(':').map(Number); return h * 60 + m; };
+  const toTime = n => { n = (n % 1440 + 1440) % 1440; return `${String(Math.floor(n / 60)).padStart(2, '0')}:${String(n % 60).padStart(2, '0')}`; };
+  const departTime = (meet, gap) => meet && +gap ? toTime(toMinutes(meet) + +gap) : '';
+
+  // Stops ⇄ the joined route ("A – B – C"; " - " also splits, so old links and pasted routes work)
+  const splitRoute = s => s.split(/\s+[–-]\s+/).map(x => x.trim()).filter(Boolean);
+  function renderStops() {
+    $('stops').textContent = '';
+    for (const stop of splitRoute(form.route.value).concat(form.route.value.trim() ? [] : [''])) addStop(stop);
+  }
+  function addStop(value = '', after = null) {
+    const row = document.createElement('div');
+    row.className = 'stop';
+    row.innerHTML = '<input name="stop" list="stop-names" enterkeyhint="next"><button type="button" class="del" aria-label="Durağı sil">×</button>';
+    row.firstChild.value = value;
+    after ? after.after(row) : $('stops').append(row);
+    $('stops').querySelectorAll('input').forEach((el, i) => el.placeholder = i ? 'sonraki durak' : 'örn. Buca');
+    return row.firstChild;
+  }
+  const syncRoute = () => form.route.value = [...$('stops').querySelectorAll('input')].map(el => el.value.trim()).filter(Boolean).join(' – ');
+
+  function applyType(type) {
+    const t = TYPES[type];
+    form.type.value = type;
+    for (const key of ['meet', 'gap', 'from', 'route', 'detail', 'note']) form[key].value = t[key];
+    form.loc.value = '';
+    form.link.checked = t.link;
+    syncPlace();
+    renderStops();
+  }
+  // The chip follows the name: a preset's name selects it, any other name is "Diğer", no name none
+  function syncPlace() {
+    const name = form.from.value.trim(), i = PLACES.findIndex(p => p.name === name);
+    const value = i >= 0 ? String(i) : name ? 'other' : '';
+    for (const el of form.place) el.checked = el.value === value;
+  }
+  // Coordinates as Google Maps copies them ("38.4188, 27.1255"), also found inside a maps link ("@38.4188,27.1255,15z")
+  const parseLoc = s => {
+    const m = s.match(/(-?\d{1,2}\.\d+)\s*,\s*(-?\d{1,3}\.\d+)/);
+    return m && Math.abs(m[1]) <= 90 && Math.abs(m[2]) <= 180 ? { lat: +m[1], lon: +m[2] } : null;
+  };
+  // A shortcut sets the date and that ride's type; the defaults are filled only when the type changes,
+  // so picking next week's Sunday keeps what was typed for a long ride.
+  function applyRegular(weekday) {
+    form.date.value = nextDate(weekday);
+    const { type } = regularOn(weekday);
+    if (form.type.value !== type) applyType(type);
+  }
+  function applyReason(reason) {
+    form.reason.value = reason;
+    form.message.value = REASONS[reason].message;
+    form.explain.value = REASONS[reason].explain;
+  }
+
+  // Greedy word wrap into tspans; returns the number of lines
+  const SVGNS = 'http://www.w3.org/2000/svg';
+  function wrap(el, text, width, leading) {
+    const lines = [];
+    let line = '';
+    for (const word of text.split(/\s+/).filter(Boolean)) {
+      el.textContent = line ? `${line} ${word}` : word;
+      if (line && el.getComputedTextLength() > width) { lines.push(line); line = word; }
+      else line = el.textContent;
+    }
+    // No single word alone on the last line: "… sürüşümüzü / iptal ediyoruz." rather than "… iptal / ediyoruz."
+    const prev = lines.at(-1)?.split(' ');
+    if (prev?.length > 1 && !line.includes(' ')) line = `${prev.pop()} ${line}`, lines[lines.length - 1] = prev.join(' ');
+    lines.push(line);
+    el.textContent = '';
+    lines.forEach((text, i) => {
+      const span = document.createElementNS(SVGNS, 'tspan');
+      span.setAttribute('x', el.getAttribute('x'));
+      span.setAttribute('dy', i ? leading : 0);
+      span.textContent = text;
+      el.append(span);
+    });
+    return lines.length;
+  }
+
+  // Cancellation groups: the day stays where the announcement has it (ends ~y=515), the line and sign-off sit at
+  // the foot of the safe zone, and the message group is centred in the space between them.
+  const CANCEL_LINE = 1470;
+  function layoutCancel(type, v) {
+    const size = +$('message').getAttribute('font-size'), leading = Math.round(size * 1.22), cap = Math.round(size * 0.72);
+    const lines = wrap($('message'), v.message || '?', 900, leading);
+    $('explain').textContent = v.explain;
+    $('next').textContent = v.next;
+    // Same line as the announcement (flat = city, climbing = Sunday), moved down; no sign-off, no line
+    $('cancel-line').setAttribute('d', $(type.climb ? 'line-climb' : 'line-flat').getAttribute('d'));
+    $('cancel-line').setAttribute('transform', `translate(0 ${CANCEL_LINE - 790})`);
+    $('cancel-line').style.display = v.next ? '' : 'none';
+    const bottom = v.next ? CANCEL_LINE - 70 : 1600;
+    // Height from the first line's cap top to the last baseline
+    const height = cap + (lines - 1) * leading + (v.explain ? 75 : 0);
+    const first = Math.round((515 + bottom - height) / 2 + cap);
+    $('message').setAttribute('y', first);
+    $('explain').setAttribute('y', first + (lines - 1) * leading + 75);
+  }
+
+  // Operator-only forecast (Open-Meteo: free, no key, attribution required) for the ride window at the start:
+  // evening ride from the meeting for CITY_HOURS, long ride from the meeting to an hour after sunset.
+  const WX_HOURLY = 'temperature_2m,apparent_temperature,precipitation_probability,precipitation,weather_code,wind_speed_10m,wind_gusts_10m,wind_direction_10m';
+  const CITY_HOURS = 3;
+  const RAIN_PROB = 50, RAIN_MM = 0.5, GUST = 50;   // warn at or above (%, mm/h, km/h)
+  const WMO = { 0: 'Açık', 1: 'Az bulutlu', 2: 'Parçalı bulutlu', 3: 'Kapalı', 45: 'Sis', 48: 'Kırağılı sis',
+    51: 'Hafif çisenti', 53: 'Çisenti', 55: 'Yoğun çisenti', 56: 'Donan çisenti', 57: 'Donan çisenti',
+    61: 'Hafif yağmur', 63: 'Yağmur', 65: 'Kuvvetli yağmur', 66: 'Donan yağmur', 67: 'Donan yağmur',
+    71: 'Hafif kar', 73: 'Kar', 75: 'Yoğun kar', 77: 'Kar taneleri', 80: 'Hafif sağanak', 81: 'Sağanak',
+    82: 'Şiddetli sağanak', 85: 'Kar sağanağı', 86: 'Kar sağanağı', 95: 'Gök gürültülü fırtına', 96: 'Dolulu fırtına', 99: 'Dolulu fırtına' };
+  const COMPASS = ['K', 'KD', 'D', 'GD', 'G', 'GB', 'B', 'KB'];   // where the wind blows from
+  // Long ride with a GPX route: SEGMENTS parts of equal estimated time, each with the forecast for the hours we
+  // should be in it, at its middle point and mean elevation. Time model: the average speed is Strava's kind, climbing
+  // included, so the moving time is distance / speed. Climbing only shapes where that time goes (CLIMB_KM of flat
+  // road per 100 m up); the stops are spread over the whole ride.
+  const SEGMENTS = 4, CLIMB_KM = 2;
+  let route = null;   // [{ lat, lon, ele, km, up }]: cumulative distance and climbing
+  const RAD = Math.PI / 180;
+  const distKm = (a, b) => 12742 * Math.asin(Math.sqrt(Math.sin((b.lat - a.lat) * RAD / 2) ** 2 +
+    Math.cos(a.lat * RAD) * Math.cos(b.lat * RAD) * Math.sin((b.lon - a.lon) * RAD / 2) ** 2));
+  const bearing = (a, b) => Math.atan2(Math.sin((b.lon - a.lon) * RAD) * Math.cos(b.lat * RAD),
+    Math.cos(a.lat * RAD) * Math.sin(b.lat * RAD) - Math.sin(a.lat * RAD) * Math.cos(b.lat * RAD) * Math.cos((b.lon - a.lon) * RAD)) / RAD;
+  function parseGpx(text) {
+    const nodes = new DOMParser().parseFromString(text, 'application/xml').querySelectorAll('trkpt, rtept');
+    const pts = [];
+    let km = 0, up = 0, low = null;   // climbing counts rises of 3 m or more, so elevation noise does not add up
+    for (const n of nodes) {
+      const ele = n.querySelector('ele') ? +n.querySelector('ele').textContent : null;
+      const p = { lat: +n.getAttribute('lat'), lon: +n.getAttribute('lon'), ele };
+      if (pts.length) km += distKm(pts.at(-1), p);
+      if (ele != null) {
+        if (low == null || ele < low) low = ele;
+        else if (ele - low >= 3) up += ele - low, low = ele;
+      }
+      pts.push({ ...p, km, up });
+    }
+    return pts.length > 1 && km > 1 ? pts : null;
+  }
+  // Minutes from midnight at each point; the segments, split by time
+  function segmentRoute(depart, speed, stops) {
+    const effort = p => p.km + p.up / 100 * CLIMB_KM;
+    const total = route.at(-1).km / speed * 60 + stops;
+    const at = p => depart + total * effort(p) / effort(route.at(-1));
+    const segs = [];
+    for (let k = 1, from = 0; k <= SEGMENTS; k++) {
+      const end = depart + total * k / SEGMENTS;
+      let to = from + 1;
+      while (to < route.length - 1 && at(route[to + 1]) <= end) to++;
+      if (k === SEGMENTS) to = route.length - 1;
+      const part = route.slice(from, Math.min(to, route.length - 1) + 1), eles = part.map(p => p.ele).filter(e => e != null);
+      segs.push({ start: at(part[0]), end: at(part.at(-1)), km0: part[0].km, km1: part.at(-1).km, up: part.at(-1).up - part[0].up,
+                  top: eles.length ? Math.max(...eles) : null, ele: eles.length === part.length ? eles.reduce((a, b) => a + b) / eles.length : null,
+                  mid: part[Math.floor(part.length / 2)], legs: part.slice(1).map((p, i) => ({ d: p.km - part[i].km, b: bearing(part[i], p) })) });
+      from = Math.min(to, route.length - 1);
+      if (from >= route.length - 1) break;
+    }
+    return segs;
+  }
+  // Wind along the segment: + from ahead, − from behind, by the share of each heading
+  const headwind = (legs, speed, from) => legs.reduce((sum, l) => sum + l.d * Math.cos((from - l.b) * RAD), 0) / legs.reduce((sum, l) => sum + l.d, 0) * speed;
+  const hm = n => toTime(Math.round(n));
+  const duration = n => { n = Math.round(n); return `${Math.floor(n / 60)} sa ${n % 60} dk`; };
+  // The closed panel still shows what matters: a warning, or that there is none
+  const summarize = (text, bad = false) => { $('wx-sum').textContent = text; $('wx-sum').classList.toggle('bad', bad); };
+  const wxCache = new Map();
+  let wxKey = '', wxTimer;
+
+  async function updateWeather(v) {
+    const date = parseDate(v.date);
+    const days = date && Math.round((date - parseDate(isoDate(new Date()))) / 864e5);
+    const preset = PLACES[form.place.value] ?? PLACES.find(p => p.name === v.from);
+    const loc = preset ?? parseLoc(v.loc);
+    const point = loc ?? PLACES[0];
+    const long = form.type.value === 'long';
+    const meet = v.meet || (long ? '07:00' : '20:00');
+    const speed = Math.min(Math.max(+form.speed.value || 20, 10), 40), stops = Math.max(+form.stops.value || 0, 0);
+    const segmented = long && route;
+    const key = [v.date, point.lat, point.lon, meet, long, v.from, !!v.meet, segmented && [route.length, route.at(-1).km, v.gap, speed, stops, v.detail]].join('|');
+    if (key === wxKey) return;
+    wxKey = key;
+    const panel = $('weather');
+    if (!date || days < 0) return void (panel.innerHTML = '', summarize(''));
+    const title = `<h2>Hava · ${segmented ? 'rota' : esc(preset?.name ?? (loc ? v.from || 'Girilen konum' : 'İzmir merkezi'))}</h2>`;
+    if (days > 15) return void (panel.innerHTML = `${title}<p>Tahmin en fazla 16 gün sonrası için var.</p>`, summarize('tahmin yok, 16 günden uzak'));
+    const next = new Date(date);
+    next.setDate(next.getDate() + 1);
+    const depart = toMinutes(meet) + +v.gap;
+    const segs = segmented && segmentRoute(depart, speed, stops);
+    // Several points in one request: comma-separated lists, the answer is an array
+    const points = segs ? segs.map(g => g.mid) : [point];
+    const elevation = segs && segs.every(g => g.ele != null) ? `&elevation=${segs.map(g => Math.round(g.ele)).join(',')}` : '';
+    const url = `https://api.open-meteo.com/v1/forecast?latitude=${points.map(p => p.lat.toFixed(4)).join(',')}` +
+                `&longitude=${points.map(p => p.lon.toFixed(4)).join(',')}${elevation}&hourly=${WX_HOURLY}` +
+                `&daily=sunset&timezone=Europe%2FIstanbul&start_date=${v.date}&end_date=${isoDate(next)}`;
+    panel.innerHTML = `${title}<p>Yükleniyor…</p>`;
+    summarize('yükleniyor…');
+    let data = wxCache.get(url);
+    try {
+      if (!data) wxCache.set(url, data = await fetch(url).then(r => r.ok ? r.json() : Promise.reject(r.status)));
+    } catch {
+      if (key === wxKey) panel.innerHTML = `${title}<p>Hava durumu alınamadı. Bağlantıyı kontrol edip bir alanı değiştir.</p>`, wxKey = '', summarize('alınamadı', true);
+      return;
+    }
+    if (key !== wxKey) return;   // a newer request took over
+    if (segs) return void (panel.innerHTML = title + segmentPanel(date, v, segs, [data].flat(), depart, speed, stops));
+
+    const h = data.hourly, sunset = data.daily.sunset[0].slice(11);
+    const first = h.time.indexOf(`${v.date}T${meet.slice(0, 2)}:00`);
+    const last = first + (long ? Math.max(Math.floor(toMinutes(sunset) / 60) + 1 - +meet.slice(0, 2), 0) : CITY_HOURS);
+    const rows = [], alerts = [];
+    for (let i = first; i <= last && i < h.time.length; i++) {
+      const prob = h.precipitation_probability[i], mm = h.precipitation[i], gust = h.wind_gusts_10m[i], time = h.time[i].slice(11);
+      const wet = prob >= RAIN_PROB || mm >= RAIN_MM, windy = gust >= GUST;
+      if (wet) alerts.push({ reason: 'rain', text: `Yağmur riski: ${time}'de %${prob ?? '?'}${mm ? `, ${mm} mm` : ''}` });
+      if (windy) alerts.push({ reason: 'storm', text: `Fırtına riski: ${time}'de ${Math.round(gust)} km/sa hamle` });
+      rows.push(`<tr><td>${time}</td><td class="desc">${WMO[h.weather_code[i]] ?? '?'}</td>` +
+        `<td>${Math.round(h.temperature_2m[i])}° <small>(${Math.round(h.apparent_temperature[i])}°)</small></td>` +
+        `<td${wet ? ' class="bad"' : ''}>%${prob ?? '?'}${mm ? ` · ${mm} mm` : ''}</td>` +
+        `<td${windy ? ' class="bad"' : ''}>${Math.round(h.wind_speed_10m[i])} / ${Math.round(gust)} ${COMPASS[Math.round(h.wind_direction_10m[i] / 45) % 8]}</td></tr>`);
+    }
+    const alert = alerts.find(a => a.reason === 'storm') ?? alerts[0];
+    const temps = h.temperature_2m.slice(first, last + 1).map(Math.round);
+    summarize((alert ? alert.text : `uyarı yok · ${Math.min(...temps)}–${Math.max(...temps)}°`) + (loc ? '' : ' · konum yok, İzmir merkezi'), !!alert);
+    panel.innerHTML = title +
+      `<p>${WEEKDAYS[date.getDay()]} ${shortDate(v.date)}, ${meet}–${h.time[Math.min(last, h.time.length - 1)].slice(11)}` +
+      `${long ? ` · gün batımı ${sunset}` : ''}${v.meet ? '' : ' · buluşma saati yok, varsayılan saat'}</p>` +
+      (loc ? '' : '<p>Konum girilmedi, İzmir merkezi gösteriliyor.</p>') +
+      (days > 3 ? `<p>${days} gün sonrası: tahmin değişebilir, sürüşten önce tekrar bak.</p>` : '') +
+      (alert ? `<div class="alert"><span>${alert.text}</span><button type="button" data-reason="${alert.reason}">İptal hikayesine geç</button></div>` : '') +
+      `<table><tr><th>Saat</th><th>Hava</th><th>°C (hissedilen)</th><th>Yağış</th><th>Rüzgar / hamle</th></tr>${rows.join('')}</table>` +
+      `<p class="src">Veri: <a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo</a> · ` +
+      `tahmin noktası ${data.latitude.toFixed(2)}, ${data.longitude.toFixed(2)} · rüzgar km/sa, geldiği yön</p>`;
+  }
+  // Hour index into the answer (start_date is the ride's date, so index = hour of the day, the next day follows)
+  function segmentPanel(date, v, segs, data, depart, speed, stops) {
+    const sunset = data[0].daily.sunset[0].slice(11), back = segs.at(-1).end, last = route.at(-1);
+    const alerts = [], temps = [];
+    const items = segs.map((g, k) => {
+      const h = data[k].hourly, hours = [];
+      for (let i = Math.floor(g.start / 60); i <= Math.floor(g.end / 60) && i < h.time.length; i++) hours.push(i);
+      const max = key => Math.max(...hours.map(i => h[key][i] ?? 0)), min = key => Math.min(...hours.map(i => h[key][i]));
+      const prob = max('precipitation_probability'), mm = max('precipitation'), gust = max('wind_gusts_10m');
+      const wind = hours.reduce((a, i) => a + h.wind_speed_10m[i], 0) / hours.length;
+      const head = g.legs.length ? hours.reduce((a, i) => a + headwind(g.legs, h.wind_speed_10m[i], h.wind_direction_10m[i]), 0) / hours.length : 0;
+      const from = COMPASS[Math.round(h.wind_direction_10m[hours[Math.floor(hours.length / 2)]] / 45) % 8];
+      const wet = prob >= RAIN_PROB || mm >= RAIN_MM, windy = gust >= GUST;
+      const when = `${hm(g.start)}–${hm(g.end)}`;
+      if (wet) alerts.push({ reason: 'rain', text: `Yağmur riski: ${k + 1}. parçada (${when}) %${prob}${mm ? `, ${mm} mm` : ''}` });
+      if (windy) alerts.push({ reason: 'storm', text: `Fırtına riski: ${k + 1}. parçada (${when}) ${Math.round(gust)} km/sa hamle` });
+      const t0 = Math.round(min('temperature_2m')), t1 = Math.round(max('temperature_2m'));
+      temps.push(t0, t1);
+      return `<li><b>${k + 1} · ${when}</b> · ${Math.round(g.km0)}–${Math.round(g.km1)} km` +
+        `${g.top != null ? ` · +${Math.round(g.up / 10) * 10} m, en yüksek ${Math.round(g.top)} m` : ''}<br>` +
+        `${WMO[max('weather_code')] ?? '?'} · ${t0 === t1 ? t0 : `${t0}–${t1}`}° (hissedilen en düşük ${Math.round(min('apparent_temperature'))}°)<br>` +
+        `<span${wet ? ' class="bad"' : ''}>yağış %${prob}${mm ? ` · ${mm} mm` : ''}</span> · ` +
+        `<span${windy ? ' class="bad"' : ''}>rüzgar ${Math.round(wind)} / ${Math.round(gust)} ${from}</span>` +
+        `${Math.abs(head) >= 3 ? ` · ${head > 0 ? 'karşıdan' : 'arkadan'} ~${Math.round(Math.abs(head))} km/sa` : ''}</li>`;
+    });
+    const alert = alerts.find(a => a.reason === 'storm') ?? alerts[0];
+    const days = Math.round((date - parseDate(isoDate(new Date()))) / 864e5);
+    const detail = `${Math.round(last.km)} km${last.up ? ` · ${Math.round(last.up / 10) * 10} m tırmanış` : ''}`;
+    const dark = back > toMinutes(sunset) - 30;
+    summarize(alert ? alert.text : dark ? 'dönüş gün batımına yakın: ışık şart' : `uyarı yok · ${Math.min(...temps)}–${Math.max(...temps)}°`, !!alert || dark);
+    return `<p>${WEEKDAYS[date.getDay()]} ${shortDate(v.date)} · ${detail} · çıkış ${hm(depart)}, tahmini dönüş ${hm(back)} · gün batımı ${sunset}</p>` +
+      (v.meet ? '' : '<p>Buluşma saati yok, 07:00 varsayıldı.</p>') +
+      (dark ? `<p class="note">Dönüş gün batımına yakın ya da sonra: ön ve arka ışık şart.</p>` : '') +
+      (days > 3 ? `<p>${days} gün sonrası: tahmin değişebilir, sürüşten önce tekrar bak.</p>` : '') +
+      (v.detail === detail ? '' : `<button type="button" class="fill" data-detail="${detail}">Hikayeye yaz: ${detail}</button>`) +
+      (alert ? `<div class="alert"><span>${alert.text}</span><button type="button" data-reason="${alert.reason}">İptal hikayesine geç</button></div>` : '') +
+      `<ol>${items.join('')}</ol>` +
+      `<p class="src">Süre tahmini: ${speed} km/sa ile ${duration(last.km / speed * 60)} hareket, molalar ${stops} dk; tırmanışlı parçalara daha çok süre düşer. ` +
+      `Veri: <a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo</a> · her parçanın orta noktası · rüzgar km/sa, geldiği yön</p>`;
+  }
+  const esc = s => s.replace(/[&<>"]/g, c => `&#${c.charCodeAt(0)};`);
+
+  // The route wraps between stops (the dash ends the line), never inside a name, and no stop is ever left out (a cut
+  // route on a public story reads as a mistake). Up to 2 lines at 46 px, else as many as it takes at 40 px, the size of
+  // the line below: no smaller, or it stops being read. Everything below moves down with the block; the poll area keeps
+  // its bottom in the safe zone and gets shorter, and the form says when that needs a smaller sticker.
+  const ROUTE_SIZES = [[46, 2], [40, Infinity]], ROUTE_GAP = 16, SAFE_BOTTOM = 1640;
+  function wrapStops(stops, size) {
+    const text = $('route-text'), first = $('route');
+    text.setAttribute('font-size', size);
+    first.textContent = '';
+    const label = text.getComputedTextLength();   // "Rota: " starts the first line only
+    const width = s => (first.textContent = s, text.getComputedTextLength());
+    const lines = [[]];
+    stops.forEach((stop, i) => {
+      const line = lines.at(-1), tail = i < stops.length - 1 ? ' –' : '';
+      const room = lines.length > 1 ? 900 + label : 900;
+      if (line.length && width([...line, stop].join(' – ') + tail) > room) lines.push([stop]);
+      else line.push(stop);
+    });
+    // No stop alone on the last line: "… Bornova – / Alsancak" becomes "… Kavaklıdere – / Bornova – Alsancak"
+    const last = lines.at(-1), prev = lines.at(-2);
+    if (prev?.length > 2 && last.length === 1 && width([prev.at(-1), ...last].join(' – ')) <= 900 + label) last.unshift(prev.pop());
+    return lines;
+  }
+  function layoutRoute(stops) {
+    $('route-text').querySelectorAll('.more').forEach(el => el.remove());   // before measuring
+    let size, max, lines;
+    for ([size, max] of ROUTE_SIZES) if ((lines = wrapStops(stops, size)).length <= max) break;
+    // Wrapped, the lines get more air and the block a clear gap before the detail line: with the same spacing inside
+    // and after the block, route and detail read as one mass
+    const leading = Math.round(size * (lines.length > 1 ? 1.3 : 1.22)), after = lines.length > 1 ? ROUTE_GAP : 0;
+    const text = $('route-text');
+    lines.forEach((line, i) => {
+      const s = line.join(' – ') + (i < lines.length - 1 ? ' –' : '');
+      if (!i) return void ($('route').textContent = s);
+      const span = document.createElementNS(SVGNS, 'tspan');
+      span.setAttribute('class', 'more');
+      span.setAttribute('x', 90);
+      span.setAttribute('dy', leading);
+      span.textContent = s;
+      text.append(span);
+    });
+    const shift = (lines.length - 1) * leading + after;
+    $('detail').setAttribute('y', 920 + shift);
+    $('note').setAttribute('y', 975 + shift);
+    let poll = Infinity;
+    for (const rect of $('guide').querySelectorAll(':scope > g rect')) {
+      const y = +rect.dataset.y + shift, height = Math.max(Math.min(+rect.dataset.h, SAFE_BOTTOM - y), 0);
+      rect.setAttribute('y', y);
+      rect.setAttribute('height', height);
+      rect.nextElementSibling.setAttribute('y', Math.round(y + height / 2 + 10));
+      if (+rect.dataset.h > 200 && rect.closest('g').style.display !== 'none') poll = Math.min(poll, height);
+    }
+    return { lines: lines.length, poll };
+  }
+
+  // Story text from the form; empty required fields show a placeholder so a forgotten one is obvious.
+  function render() {
+    const type = TYPES[form.type.value];
+    const v = Object.fromEntries(FIELDS.map(k => [k, form[k].value.trim()]));
+    const date = parseDate(v.date);
+    $('date').textContent = date ? shortDate(v.date).toLocaleUpperCase('tr-TR') : '';
+    $('date-warn').textContent = date && v.date < isoDate(new Date()) ? 'Bu tarih geçmişte kaldı.' : '';
+    document.body.classList.toggle('other', form.place.value === 'other');
+    document.body.classList.toggle('long', form.type.value === 'long');
+    $('loc-warn').textContent = v.loc && !parseLoc(v.loc) ? 'Koordinat okunamadı; örn. 38.4188, 27.1255' : '';
+    if (!document.body.classList.contains('raw')) { clearTimeout(wxTimer); wxTimer = setTimeout(() => updateWeather(v), 400); }
+    for (const el of form.quick) el.checked = v.date === nextDate(+el.value);
+    $('day').textContent = date ? WEEKDAYS[date.getDay()] : '?';
+    const cancel = form.mode.value === 'cancel';
+    document.body.classList.toggle('cancel', cancel);
+    $('ride').style.display = cancel ? 'none' : '';
+    $('cancel').style.display = cancel ? '' : 'none';
+    // Cancelled: the day fades and the elevation line strikes it through at mid x-height, the width of the word
+    $('day').setAttribute('fill-opacity', cancel ? 0.5 : 1);
+    const box = $('day').getBBox();
+    $('strike').setAttribute('d', `M${box.x + 6} 444 H${Math.round(box.x + box.width - 6)}`);
+    if (cancel) layoutCancel(type, v);
+    $('meet').textContent = v.meet || '--:--';
+    $('from').textContent = v.from || '?';
+    const depart = departTime(v.meet, v.gap);
+    $('depart').textContent = depart ? `${depart}${locative(depart)} yola çıkıyoruz` : '';
+    $('depart-at').textContent = !v.meet ? '' : depart ? `→ ${depart}` : '→ hikayede çıkış satırı yok';
+    $('detail').textContent = v.detail;
+    $('note').textContent = v.note;
+    $('line-flat').style.display = type.climb ? 'none' : '';
+    $('line-climb').style.display = type.climb ? '' : 'none';
+    $('zones-poll').style.display = cancel || form.link.checked ? 'none' : '';
+    $('zones-link').style.display = !cancel && form.link.checked ? '' : 'none';
+    const stops = splitRoute(v.route), route = layoutRoute(stops.length ? stops : ['?']);
+    $('route-warn').textContent = [
+      route.lines > 2 ? `Rota ${route.lines} satır oldu: hikayede okunması zor. Birkaç durağı çıkar ya da grupla (örn. Kızılca köyleri); tam rota Strava'da.` : '',
+      route.poll < 280 ? 'Anket alanı çok daraldı: anketi küçük koyman ya da durak azaltman gerekecek.'
+        : route.poll < 380 ? 'Anket alanı daraldı: çıkartmayı biraz küçültmen gerekecek.' : '',
+    ].filter(Boolean).join(' ');
+    $('guide').style.display = form.guide.checked ? '' : 'none';
+    // Shrink long lines to the 90–990 margin instead of wrapping, so the layout never moves.
+    for (const el of document.querySelectorAll('.fit')) {
+      let size = +el.dataset.base;
+      el.setAttribute('font-size', size);
+      while (el.getComputedTextLength() > 900 && size > 34) el.setAttribute('font-size', size -= 2);
+    }
+  }
+
+  const toBase64 = buf => {
+    const bytes = new Uint8Array(buf);
+    let s = '';
+    for (let i = 0; i < bytes.length; i += 0x8000) s += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+    return btoa(s);
+  };
+  let fontCss = '';
+  async function loadFonts() {
+    const faces = await Promise.all(FONTS.map(async ([file, range]) => {
+      const buf = await (await fetch(file)).arrayBuffer();
+      const face = new FontFace('Nunito', buf, { weight: '200 1000', unicodeRange: range });
+      document.fonts.add(face);
+      await face.load();
+      return `@font-face{font-family:Nunito;font-weight:200 1000;unicode-range:${range};src:url(data:font/woff2;base64,${toBase64(buf)}) format('woff2')}`;
+    }));
+    fontCss = faces.join('');
+  }
+
+  // PNG of the story without the guide, fonts embedded
+  async function renderPng() {
+    const svg = $('out').cloneNode(true);
+    svg.removeAttribute('id');
+    svg.querySelector('#guide').remove();
+    const style = document.createElementNS('http://www.w3.org/2000/svg', 'style');
+    style.textContent = fontCss;
+    svg.prepend(style);
+    const img = new Image();
+    img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(new XMLSerializer().serializeToString(svg));
+    await img.decode();
+    await new Promise(r => setTimeout(r, 120));   // WebKit can apply SVG-image fonts a beat after decode
+    const canvas = document.createElement('canvas');
+    canvas.width = 1080;
+    canvas.height = 1920;
+    canvas.getContext('2d').drawImage(img, 0, 0, 1080, 1920);
+    return new Promise(r => canvas.toBlob(r, 'image/png'));
+  }
+
+  const slug = s => s.toLocaleLowerCase('tr-TR').replace(/ç/g, 'c').replace(/ğ/g, 'g').replace(/ı/g, 'i').replace(/ö/g, 'o')
+                     .replace(/ş/g, 's').replace(/ü/g, 'u').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+  // The PNG is prepared after every change, so a tap can call share() right away:
+  // iOS only allows the share sheet directly inside the tap.
+  let png = null, pending = 0;
+  async function refresh() {
+    render();
+    const ticket = ++pending;
+    $('share').disabled = $('download').disabled = true;
+    const blob = await renderPng();
+    if (ticket !== pending) return;
+    const suffix = form.mode.value === 'cancel' ? '-iptal' : '';
+    png = new File([blob], `binefes-${form.date.value || 'tarih'}-${slug($('day').textContent)}${suffix}.png`, { type: 'image/png' });
+    $('share').disabled = $('download').disabled = false;
+    document.body.dataset.ready = '1';
+  }
+  let timer;
+  const refreshSoon = () => { clearTimeout(timer); timer = setTimeout(refresh, 250); };
+
+  function download() {
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(png);
+    a.download = png.name;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 10000);
+  }
+  $('download').addEventListener('click', download);
+  $('share').addEventListener('click', async () => {
+    if (!navigator.canShare?.({ files: [png] })) return download();
+    try { await navigator.share({ files: [png] }); }
+    catch (e) { if (e.name !== 'AbortError') download(); }
+  });
+  for (const el of form.quick) el.addEventListener('change', () => { applyRegular(+el.value); refresh(); });
+  for (const el of form.type) el.addEventListener('change', () => { applyType(form.type.value); refresh(); });
+  // A preset fills the name; "Diğer" starts empty and asks for it
+  $('places').addEventListener('change', () => {
+    const preset = PLACES[form.place.value];
+    form.from.value = preset ? preset.name : '';
+    form.loc.value = '';
+    refresh();
+    if (!preset) form.from.focus();
+  });
+  form.gpx.addEventListener('change', async () => {
+    const file = form.gpx.files[0];
+    route = file ? parseGpx(await file.text()) : null;
+    $('gpx-warn').textContent = file && !route ? 'Bu dosyada rota noktası bulunamadı (GPX olmalı).' : '';
+    refresh();
+  });
+  $('weather').addEventListener('click', e => {
+    if (e.target.dataset?.detail) return void (form.detail.value = e.target.dataset.detail, refresh());
+    const reason = e.target.dataset?.reason;
+    if (!reason) return;
+    form.mode.value = 'cancel';
+    applyReason(reason);
+    refresh();
+    scrollTo({ top: 0, behavior: 'smooth' });
+  });
+  for (const el of form.reason) el.addEventListener('change', () => {
+    applyReason(form.reason.value);
+    if (form.reason.value === 'other') form.explain.focus();
+    refresh();
+  });
+  form.addEventListener('input', e => {
+    if (['quick', 'type', 'place', 'reason', 'gpx'].includes(e.target.name)) return;
+    e.target.type === 'checkbox' || e.target.type === 'radio' ? refresh() : refreshSoon();
+  });
+  form.addEventListener('submit', e => e.preventDefault());
+  // Stops: typing keeps the joined route in step (the form listener then refreshes); Enter adds a stop below,
+  // Backspace on an empty stop removes it, × removes, a pasted "A – B – C" becomes separate stops
+  $('stops').addEventListener('input', syncRoute);
+  $('add-stop').addEventListener('click', () => addStop().focus());
+  $('stops').addEventListener('click', e => {
+    if (!e.target.classList.contains('del')) return;
+    const row = e.target.parentNode;
+    $('stops').children.length > 1 ? row.remove() : row.firstChild.value = '';
+    syncRoute();
+    refresh();
+  });
+  $('stops').addEventListener('keydown', e => {
+    if (e.target.name !== 'stop') return;
+    const row = e.target.parentNode;
+    if (e.key === 'Enter') return void (e.preventDefault(), addStop('', row).focus());
+    if (e.key === 'Backspace' && !e.target.value && row.previousElementSibling) {
+      e.preventDefault();
+      row.previousElementSibling.firstChild.focus();
+      row.remove();
+      syncRoute();
+      refresh();
+    }
+  });
+  $('stops').addEventListener('paste', e => {
+    const parts = splitRoute(e.clipboardData.getData('text'));
+    if (parts.length < 2) return;
+    e.preventDefault();
+    e.target.value = parts[0];
+    let row = e.target.parentNode;
+    for (const part of parts.slice(1)) row = addStop(part, row).parentNode;
+    syncRoute();
+    refresh();
+  });
+  // The preview toggles sit outside the form element, so their events do not reach the form listener
+  form.guide.addEventListener('change', refresh);
+  form.link.addEventListener('change', refresh);
+  // The weather panel remembers whether it was left open (this browser only)
+  try { $('wx-more').open = localStorage.getItem('binefes.weatherOpen') === '1'; } catch {}
+  $('wx-more').addEventListener('toggle', () => { try { localStorage.setItem('binefes.weatherOpen', $('wx-more').open ? '1' : '0'); } catch {} });
+
+  // Start: the next regular ride (today included) or the one ?day= names, its type's defaults, then anything given
+  // in the query string (?type=long&date=2026-11-07&from=…&guide=0)
+  for (const el of document.querySelectorAll('.fit')) el.dataset.base = el.getAttribute('font-size');
+  for (const el of $('guide').querySelectorAll(':scope > g rect')) el.dataset.y = el.getAttribute('y'), el.dataset.h = el.getAttribute('height');
+  form.date.min = isoDate(new Date());   // greys out past days where the picker supports it (not iOS); render() warns anyway
+  for (const el of form.quick) el.nextElementSibling.lastChild.textContent = shortDate(nextDate(+el.value));
+  PLACES.forEach((p, i) => $('places').lastElementChild.insertAdjacentHTML('beforebegin',
+    `<label><input type="radio" name="place" value="${i}"><span>${p.short}</span></label>`));
+  $('places').style.setProperty('--cols', Math.min(PLACES.length + 1, 4));
+  const regular = REGULAR[q.get('day')] ?? Object.values(REGULAR).sort((a, b) => nextDate(a.weekday) < nextDate(b.weekday) ? -1 : 1)[0];
+  form.date.value = q.get('date') ?? nextDate(regular.weekday);
+  // The type: ?type=, else that of the regular ride on the date (?date= alone), else city
+  const dated = !q.has('day') && parseDate(form.date.value);
+  applyType(TYPES[q.get('type')] ? q.get('type') : (dated ? regularOn(dated.getDay())?.type : regular.type) ?? 'city');
+  applyReason(REASONS[q.get('reason')] ? q.get('reason') : 'rain');
+  form.next.value = SIGN_OFF;
+  if (q.get('mode') === 'cancel') form.mode.value = 'cancel';
+  for (const key of FIELDS) if (q.has(key)) form[key].value = q.get(key);
+  syncPlace();
+  renderStops();
+  if (!form.gap.value) form.gap.value = '15';   // a gap that is not one of the chips falls back to the default
+  if (q.has('link')) form.link.checked = q.get('link') === '1';
+  if (q.has('guide')) form.guide.checked = q.get('guide') === '1';
+  loadFonts().then(refresh);
+</script>
+</body>
+</html>
